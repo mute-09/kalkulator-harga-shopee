@@ -1,0 +1,15 @@
+services:
+  kalkulator-shopee:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kalkulator-shopee-app
+    ports:
+      - "7000:5000"
+    volumes:
+      # Persistent Volume agar data SQLite tersimpan aman di host server
+      - sqlite_data:/app/backend/data
+    restart: always
+
+volumes:
+  sqlite_data:
