@@ -127,34 +127,12 @@ const [inputs, setInputs] = useState({
           </button>
         </nav>
 
-        {/* Info masa aktif di footer */}
-        <div className="mt-2 text-sm text-gray-500">
-          {accessInfo ? (
-            <div className="flex items-center">
-              {accessInfo.daysLeft !== null ? (
-                <span>
-                  Aktif hingga{' '}
-                  <span className="font-medium" >
-                    {new Date(accessInfo.expiresAt).toLocaleDateString('id-ID', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </span>
-                  {(accessInfo.daysLeft || 0) > 0 && ` (${accessInfo.daysLeft} hari lagi)`}
-                </span>
-              ) : (
-                'Aktif hingga ' + new Date(accessInfo.expiresAt).toLocaleDateString('id-ID')
-              )}
-              {accessInfo.daysLeft !== null && accessInfo.daysLeft <= 3 && (
-                <span className="ml-2 text-xs font-bold text-red-600">⚠ Masa aktif akan berakhir dalam 3 hari!</span>
-              )}
-            </div>
-          ) : (
-            'Aktif tanpa batas waktu'
-          )}
-        </div>
+        {/* Peringatan masa aktif di atas jika mendekati kadaluarsa */}
+        {showWarning && accessInfo && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center text-sm text-red-600 font-semibold">
+            ⚠ Masa aktif akun Anda akan berakhir dalam {accessInfo.daysLeft} hari. Segera hubungi admin untuk perpanjangan.
+          </div>
+        )}
 
         <header className="text-center">
           <h1 className="text-3xl font-extrabold text-orange-600">Kalkulator Harga Shopee</h1>
@@ -280,6 +258,25 @@ const [inputs, setInputs] = useState({
             </table>
           </div>
         </div>
+
+        {/* Info masa aktif di bawah halaman */}
+        {accessInfo && (
+          <div className="text-center text-xs text-gray-400 py-4">
+            {accessInfo.daysLeft !== null ? (
+              <span>
+                Aktif hingga{' '}
+                {new Date(accessInfo.expiresAt).toLocaleDateString('id-ID', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </span>
+            ) : (
+              'Akun aktif tanpa batas waktu'
+            )}
+          </div>
+        )}
 
       </div>
     </div>
