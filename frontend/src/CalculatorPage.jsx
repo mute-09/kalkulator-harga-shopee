@@ -8,11 +8,11 @@ const [inputs, setInputs] = useState({
     targetProfit: '',
     biayaResiko: '',
     paymentFee: '',
-    campaignFee: 0,
-    promoFee: 0,
-    voucherFee: 0,
-    affiliateFee: 0,
-    flashSaleFee: 0,
+    campaignFee: '',
+    promoFee: '',
+    voucherFee: '',
+    affiliateFee: '',
+    flashSaleFee: '',
     pajakFee: '',
   });
 
@@ -175,7 +175,7 @@ const [inputs, setInputs] = useState({
               ].map(([key, label]) => (
                 <div key={key}>
                   <label className="text-xs text-gray-600 block mb-1">{label}</label>
-                  <input type="text" inputMode="numeric" name={key} placeholder={key} value={inputs[key]} onChange={handleChange} className="w-full p-2 border rounded-md text-sm focus:ring-1 focus:ring-orange-500 outline-none" pattern="[0-9]*" />
+                  <input type="text" inputMode="numeric" name={key} placeholder="0" value={inputs[key]} onChange={handleChange} className="w-full p-2 border rounded-md text-sm focus:ring-1 focus:ring-orange-500 outline-none" pattern="[0-9]*" />
                 </div>
               ))}
             </div>
