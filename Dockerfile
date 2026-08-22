@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend
-FROM node:20-alpine AS build-frontend
+FROM node:22-alpine AS build-frontend
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
@@ -7,11 +7,11 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Setup Backend & Runner
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 # Install build tools jika better-sqlite3 memerlukan kompilasi native
-RUN apk add --no-coache python3 make g++
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app/backend
 COPY backend/package*.json ./
