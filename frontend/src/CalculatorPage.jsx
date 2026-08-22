@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { api } from './api';
 
 export default function CalculatorPage({ user, onLogout }) {
-  const [inputs, setInputs] = useState({
-    productName: 'Kemeja Oversize',
-    hpp: 34000,
-    targetProfit: 7000,
-    biayaResiko: 15,
-    paymentFee: 25,
-    campaignFee: 30,
-    promoFee: 15,
-    voucherFee: 5,
-    affiliateFee: 12,
-    flashSaleFee: 25,
-    pajakFee: 0.5,
+const [inputs, setInputs] = useState({
+    productName: '',
+    hpp: '',
+    targetProfit: '',
+    biayaResiko: '',
+    paymentFee: '',
+    campaignFee: 0,
+    promoFee: 0,
+    voucherFee: 0,
+    affiliateFee: 0,
+    flashSaleFee: 0,
+    pajakFee: '',
   });
 
   const [result, setResult] = useState(null);
@@ -42,6 +42,17 @@ export default function CalculatorPage({ user, onLogout }) {
     fetchHistory();
   }, []);
 
+  useEffect(() => {
+    if (user?.email) {
+      api('/api/auth/me').then(r => {
+        if (r.ok && r.data.access) {
+          setAccessInfo(r.data.access);
+          setShowWarning(r.data.daysLeft !== null && r.data.daysLeft <= 3);
+        }
+      });
+    }
+  }, [user?.email]);
+
   const fetchHistory = async () => {
     try {
       const { ok, data } = await api('/api/history');
@@ -55,7 +66,7 @@ export default function CalculatorPage({ user, onLogout }) {
     const { name, value } = e.target;
     setInputs((prev) => ({
       ...prev,
-      [name]: name === 'productName' ? value : parseFloat(value) || 0
+      [name]: name === 'productName' ? value : value === '' ? '' : parseFloat(value) || 0
     }));
   };
 
@@ -114,6 +125,35 @@ export default function CalculatorPage({ user, onLogout }) {
           </button>
         </nav>
 
+        {/* Info masa aktif di footer */}
+        <div className="mt-2 text-sm text-gray-500">
+          {accessInfo ? (
+            <div className="flex items-center">
+              {accessInfo.daysLeft !== null ? (
+                <span>
+                  Aktif hingga{' '}
+                  <span className="font-medium" >
+                    {new Date(accessInfo.expiresAt).toLocaleDateString('id-ID', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                  {(accessInfo.daysLeft || 0) > 0 && ` (${accessInfo.daysLeft} hari lagi)`}
+                </span>
+              ) : (
+                'Aktif hingga ' + new Date(accessInfo.expiresAt).toLocaleDateString('id-ID')
+              )}
+              {accessInfo.daysLeft !== null && accessInfo.daysLeft <= 3 && (
+                <span className="ml-2 text-xs font-bold text-red-600">⚠ Masa aktif akan berakhir dalam 3 hari!</span>
+              )}
+            </div>
+          ) : (
+            'Aktif tanpa batas waktu'
+          )}
+        </div>
+
         <header className="text-center">
           <h1 className="text-3xl font-extrabold text-orange-600">Kalkulator Harga Shopee</h1>
           <p className="text-gray-600 mt-1">Hitung otomatis harga jual display untuk menutup komisi & profit target</p>
@@ -126,17 +166,17 @@ export default function CalculatorPage({ user, onLogout }) {
 
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase">Nama Produk</label>
-              <input type="text" name="productName" value={inputs.productName} onChange={handleChange} className="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
+              <input type="text" name="productName" placeholder="Nama Produk" value={inputs.productName} onChange={handleChange} className="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase">HPP / Modal (Rp)</label>
-                <input type="number" name="hpp" value={inputs.hpp} onChange={handleChange} className="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
+                <input type="text" inputMode="numeric" name="hpp" placeholder="HPP" value={inputs.hpp} onChange={handleChange} className="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase">Target Profit (Rp)</label>
-                <input type="number" name="targetProfit" value={inputs.targetProfit} onChange={handleChange} className="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
+                <input type="text" inputMode="numeric" name="targetProfit" placeholder="Target Profit" value={inputs.targetProfit} onChange={handleChange} className="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
               </div>
             </div>
 
@@ -155,7 +195,7 @@ export default function CalculatorPage({ user, onLogout }) {
               ].map(([key, label]) => (
                 <div key={key}>
                   <label className="text-xs text-gray-600 block mb-1">{label}</label>
-                  <input type="number" step="0.1" name={key} value={inputs[key]} onChange={handleChange} className="w-full p-2 border rounded-md text-sm focus:ring-1 focus:ring-orange-500 outline-none" />
+                  <input type="text" inputMode="numeric" name={key} placeholder={key} value={inputs[key]} onChange={handleChange} className="w-full p-2 border rounded-md text-sm focus:ring-1 focus:ring-orange-500 outline-none" pattern="[0-9]*" />
                 </div>
               ))}
             </div>
