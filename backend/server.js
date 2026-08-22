@@ -20,6 +20,10 @@ const db = new Database(path.join(dataDir, 'shopee_calculator.db'));
 
 const ACTIVATION_TTL_HOURS = 24;
 const SESSION_TTL_DAYS = 7;
+const DEFAULT_ACCESS_DAYS = process.env.ACCESS_TTL_DAYS ? Number(process.env.ACCESS_TTL_DAYS) : null;
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCK_MINUTES = 15;
+const loginAttempts = new Map();
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -27,6 +31,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     passwordHash TEXT NOT NULL,
     isActivated INTEGER DEFAULT 0,
+    accessExpiresAt DATETIME,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -70,6 +75,12 @@ db.exec(`
 const calcColumns = db.prepare('PRAGMA table_info(price_calculations)').all();
 if (!calcColumns.some((c) => c.name === 'userId')) {
   db.prepare('ALTER TABLE price_calculations ADD COLUMN userId INTEGER').run();
+}
+
+// Migrasi untuk manajemen batas waktu akses akun (NULL = tanpa batas)
+const userColumns = db.prepare('PRAGMA table_info(users)').all();
+if (!userColumns.some((c) => c.name === 'accessExpiresAt')) {
+  db.prepare('ALTER TABLE users ADD COLUMN accessExpiresAt DATETIME').run();
 }
 
 function hashPassword(password) {
@@ -128,13 +139,18 @@ function requireAuth(req, res, next) {
   }
   const session = db
     .prepare(
-      `SELECT u.id, u.email FROM sessions s
+      `SELECT u.id, u.email,
+         CASE WHEN u.accessExpiresAt IS NOT NULL AND u.accessExpiresAt <= datetime('now') THEN 1 ELSE 0 END AS accessExpired
+       FROM sessions s
        JOIN users u ON u.id = s.userId
        WHERE s.token = ? AND s.expiresAt > datetime('now')`
     )
     .get(token);
   if (!session) {
     return res.status(401).json({ success: false, message: 'Sesi tidak valid atau sudah kedaluwarsa' });
+  }
+  if (session.accessExpired) {
+    return res.status(403).json({ success: false, message: 'Masa akses akun telah berakhir' });
   }
   req.user = { id: session.id, email: session.email };
   next();
@@ -157,9 +173,15 @@ app.post('/api/auth/signup', (req, res) => {
       return res.status(409).json({ success: false, message: 'Email sudah terdaftar' });
     }
 
-    const result = db
-      .prepare('INSERT INTO users (email, passwordHash, isActivated) VALUES (?, ?, 0)')
-      .run(email, hashPassword(password));
+    const result = DEFAULT_ACCESS_DAYS
+      ? db
+          .prepare(
+            "INSERT INTO users (email, passwordHash, isActivated, accessExpiresAt) VALUES (?, ?, 0, datetime('now', '+' || ? || ' days'))"
+          )
+          .run(email, hashPassword(password), DEFAULT_ACCESS_DAYS)
+      : db
+          .prepare('INSERT INTO users (email, passwordHash, isActivated) VALUES (?, ?, 0)')
+          .run(email, hashPassword(password));
     const userId = result.lastInsertRowid;
 
     db.prepare("DELETE FROM activation_codes WHERE userId = ? OR expiresAt <= datetime('now')").run(userId);
@@ -247,14 +269,46 @@ app.post('/api/auth/login', (req, res) => {
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const attempt = loginAttempts.get(email);
+    if (attempt?.lockedUntil && Date.now() < attempt.lockedUntil) {
+      const minutesLeft = Math.ceil((attempt.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({
+        success: false,
+        message: `Terlalu banyak percobaan login gagal. Coba lagi dalam ${minutesLeft} menit.`
+      });
+    }
+
+    const user = db
+      .prepare(
+        `SELECT id, email, passwordHash, isActivated,
+           CASE WHEN accessExpiresAt IS NOT NULL AND accessExpiresAt <= datetime('now') THEN 1 ELSE 0 END AS accessExpired
+         FROM users WHERE email = ?`
+      )
+      .get(email);
+
     if (!user || !verifyPassword(password, user.passwordHash)) {
+      const record = loginAttempts.get(email) || { count: 0 };
+      record.count += 1;
+      if (record.count >= MAX_LOGIN_ATTEMPTS) {
+        record.lockedUntil = Date.now() + LOGIN_LOCK_MINUTES * 60 * 1000;
+        record.count = 0;
+      }
+      loginAttempts.set(email, record);
       return res.status(401).json({ success: false, message: 'Email atau password salah' });
     }
+
+    loginAttempts.delete(email);
+
     if (!user.isActivated) {
       return res.status(403).json({
         success: false,
         message: 'Akun belum diaktivasi. Cek kode aktivasi di log terminal server.'
+      });
+    }
+    if (user.accessExpired) {
+      return res.status(403).json({
+        success: false,
+        message: 'Masa akses akun Anda telah berakhir. Hubungi administrator untuk perpanjangan.'
       });
     }
 
@@ -270,7 +324,15 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  res.json({ success: true, user: req.user });
+  const access = db
+    .prepare(
+      `SELECT accessExpiresAt,
+         CASE WHEN accessExpiresAt IS NULL THEN NULL
+              ELSE MAX(0, CAST(julianday(accessExpiresAt) - julianday('now') AS INTEGER)) END AS daysLeft
+       FROM users WHERE id = ?`
+    )
+    .get(req.user.id);
+  res.json({ success: true, user: req.user, access });
 });
 
 app.post('/api/auth/logout', requireAuth, (req, res) => {
