@@ -49,7 +49,7 @@ const [inputs, setInputs] = useState({
       api('/api/auth/me').then(r => {
         if (r.ok && r.data.access) {
           setAccessInfo(r.data.access);
-          setShowWarning(r.data.daysLeft !== null && r.data.daysLeft <= 3);
+          setShowWarning(r.data.access.daysLeft !== null && r.data.access.daysLeft <= 3);
         }
       });
     }
@@ -262,10 +262,10 @@ const [inputs, setInputs] = useState({
         {/* Info masa aktif di bawah halaman */}
         {accessInfo && (
           <div className="text-center text-xs text-gray-400 py-4">
-            {accessInfo.daysLeft !== null ? (
+            {accessInfo.accessExpiresAt ? (
               <span>
                 Aktif hingga{' '}
-                {new Date(accessInfo.expiresAt).toLocaleDateString('id-ID', {
+                {new Date(accessInfo.accessExpiresAt).toLocaleDateString('id-ID', {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
