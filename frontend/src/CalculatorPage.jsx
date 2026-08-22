@@ -20,6 +20,8 @@ const [inputs, setInputs] = useState({
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [accessInfo, setAccessInfo] = useState(null);
+  const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
     const totalPct = (
