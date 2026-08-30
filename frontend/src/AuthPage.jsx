@@ -148,7 +148,7 @@ export default function AuthPage({ onLogin }) {
             />
             <SubmitButton loading={loading}>Daftar</SubmitButton>
             <p className="text-xs text-gray-400 text-center">
-              Kode aktivasi akan dikirim ke log terminal server.
+              Silakan kirim permintaan kode aktivasi ke admin melalui email atau telepon.
             </p>
           </form>
         )}
